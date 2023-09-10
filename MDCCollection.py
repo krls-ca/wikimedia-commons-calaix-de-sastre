@@ -11,16 +11,28 @@ from scripts import upload
 import pywikibot
 import json
 
-AUTHOR_KEY = u"ArmengolBas"
-FULL_NAME_AUTHOR = u"Josep Maria Armengol i Bas"
+def help():
+	parser = argparse.ArgumentParser(description="Exemple d'ús MDCCollection.")
+	parser.add_argument("--force", action="store_true", help="Força tornar a executar l'execució get_all_collection_links.")
+	parser.add_argument("--debug", action="store_true", help="No es pengen les imatges a Commons.")
+	parser.add_argument("--author", action="store", help="Author name in Wikimedia Commons. Ex: 'Antoni Bartumeus i Casanovas'." , required=True)
+	parser.add_argument("--authormdc", action="store", help="Author name in MDC Collection. Ex: 'Bartomeus i Casanovas, Antoni, 1856-1935'." , required=True)
+	parser.add_argument("--dir", action="store", help="Local name folder. Ex 'BartumeusCasanovas'.", required=True)
+	args = parser.parse_args()
+	parser.print_help()
+	return args
+
+args = help()
+AUTHOR_DIR = args.dir
+FULL_NAME_AUTHOR = args.author
 DOMAIN = u"https://mdc.csuc.cat/digital"
-JSON_URL = 'https://mdc.csuc.cat/digital/api/search/collection/afceccf!afcecemc!afcecag!afcecin!afceco!afcecpz/searchterm/Armengol%20i%20Bas,%20Josep%20Maria/field/creato/mode/all/conn/and/order/title/ad/asc/maxRecords/1200'
+JSON_URL = 'https://mdc.csuc.cat/digital/api/search/collection/afceccf!afcecemc!afcecag!afcecin!afceco!afcecpz/searchterm/{mdc}/field/creato/mode/all/conn/and/order/title/ad/asc/maxRecords/1200'.format(mdc=urllib.parse.quote(args.authormdc))
 JSON_METADATA_URL = 'https://mdc.csuc.cat/digital/api/collections/{collection}/items/{id}/true'
-IMG_FOLDER = u"MDC/{author}/images/".format(author=AUTHOR_KEY)
+IMG_FOLDER = u"MDC/{author}/images/".format(author=AUTHOR_DIR)
 LICENSE = u"{{PD-Art|PD-old-80}}"
 INSTITUTION = u"{{Institution:Memòria Digital de Catalunya}}"
 FONDS = u'Fons'
-COMMONS_CAT = u"[[Category:Photographs by Josep Maria Armengol i Bas]]\n[[Category:Images from Memòria Digital de Catalunya]]"
+COMMONS_CAT = u"[[Category:Photographs by {author}]]\n[[Category:Images from Memòria Digital de Catalunya]]".format(author=args.author)
 
 class CompoundObjectException(Exception):
     def __init__(self, message):
@@ -28,9 +40,9 @@ class CompoundObjectException(Exception):
         super(CompoundObjectException, self).__init__(message)
 
 try:
-	collection_url_file = open(u'MDC/{0}/{0}-urls.txt'.format(AUTHOR_KEY), 'a+', encoding='utf8')
-	done_file = open(u'MDC/{0}/done.txt'.format(AUTHOR_KEY), 'a+', encoding='utf8')
-	fail_file = open(u'MDC/{0}/fail.txt'.format(AUTHOR_KEY), 'a+', encoding='utf8')
+	collection_url_file = open(u'MDC/{0}/{0}-urls.txt'.format(AUTHOR_DIR), 'a+', encoding='utf8')
+	done_file = open(u'MDC/{0}/done.txt'.format(AUTHOR_DIR), 'a+', encoding='utf8')
+	fail_file = open(u'MDC/{0}/fail.txt'.format(AUTHOR_DIR), 'a+', encoding='utf8')
 except (OSError, IOError) as e:
 	print(u'Problemes per obrir l\'arxiu')
 	exit(0)
@@ -201,13 +213,13 @@ def get_metadata(collection, identifier, img_url):
 		meta['fonds'] = u'{0} {1}'.format(FONDS, get_meta_field(data, "fons"))
 		meta['medium'] = get_meta_field(data, "descrb")
 		meta['dimensions'] = parse_dimensions(get_meta_field(data, "descrb"))
-		meta['publisher'] = parse_dimensions(get_meta_field(data, "publis"))
+		meta['depositor'] = get_meta_field(data, "publis")
 	return meta
 
 def process_image(site, img_url):
 	print("Processing {0}".format(img_url))
 	collection, identifier = get_unique_identifiers(img_url)
-	output_path = u'{0}{1}-{2}-{3}.'.format(IMG_FOLDER, AUTHOR_KEY, collection, identifier)
+	output_path = u'{0}{1}-{2}-{3}.'.format(IMG_FOLDER, AUTHOR_DIR, collection, identifier)
 	#image_url = "http://mdc.csuc.cat/utils/ajaxhelper/?CISOROOT={0}&CISOPTR={1}"\
 		#"&action=2&DMWIDTH=5000&DMHEIGHT=5000&DMX=0&DMY=0&DMTEXT=&DMROTATE=0".format(collection, identifier)
 	image_url = "https://mdc.csuc.cat/digital/download/collection/{collection}/id/{id}/size/full".format(collection=collection, id=identifier)
@@ -253,16 +265,7 @@ def is_empty_file(file):
 	file.seek(point)
 	return length == 0
 
-def help():
-	parser = argparse.ArgumentParser(description="Exemple d'ús MDCCollection")
-	parser.add_argument("--force", action="store_true", help="Força tornar a executar l'execució get_all_collection_links")
-	parser.add_argument("--debug", action="store_true", help="No es pengen les imatges a Commons")
-	args = parser.parse_args()
-	return args
-
 def main():
-	global args
-	args = help()
 	site = pywikibot.Site("commons", "commons")
 	site.login()
 

@@ -28,8 +28,21 @@ Forma part del projecte: https://commons.wikimedia.org/wiki/Commons:Wikiproject_
 - 1a versió (2019)
 - 2a versió (2023)
 
+Exemple d'ús MDCCollection:
+
 ```sh
-$ python3 MDCCollection.py
+$ python3 MDCCollection.py --author "Antoni Bartumeus i Casanovas" --authormdc "Bartomeus i Casanovas, Antoni, 1856-1935" --dir BartumeusCasanovas
 ```
---debug: no penja les fotografies a Commons
---force: encara que ja s'hagi descarregat l'imatge es torna a descarregar
+
+Usage: MDCCollection.py [-h] [--force] [--debug] --author AUTHOR --authormdc AUTHORMDC --dir DIR
+
+Arguments:
+  -h, --help            show this help message and exit
+  --force               Força tornar a executar l'execució get_all_collection_links
+  --debug               No es pengen les imatges a Commons
+  --author AUTHOR       Author name in Wikimedia Commons
+  --authormdc AUTHORMDC
+                        Author name in MDC Collection
+  --dir DIR             Local name folder
+
+
