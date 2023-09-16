@@ -26,7 +26,7 @@ args = help()
 AUTHOR_DIR = args.dir
 FULL_NAME_AUTHOR = args.author
 DOMAIN = u"https://mdc.csuc.cat/digital"
-JSON_URL = 'https://mdc.csuc.cat/digital/api/search/collection/afceccf!afcecemc!afcecag!afcecin!afceco!afcecpz/searchterm/{mdc}/field/creato/mode/all/conn/and/order/title/ad/asc/maxRecords/1200'.format(mdc=urllib.parse.quote(args.authormdc))
+JSON_URL = 'https://mdc.csuc.cat/digital/api/search/collection/afceccf!afcecemc!afcecag!afcecin!afceco!afcecpz/searchterm/{mdc}/field/creato/mode/all/conn/and/order/title/ad/asc/maxRecords/8000'.format(mdc=urllib.parse.quote(args.authormdc))
 JSON_METADATA_URL = 'https://mdc.csuc.cat/digital/api/collections/{collection}/items/{id}/true'
 IMG_FOLDER = u"MDC/{author}/images/".format(author=AUTHOR_DIR)
 LICENSE = u"{{PD-Art|PD-old-80}}"
@@ -152,8 +152,9 @@ def upload_image(site, meta, img_path):
 				fail_file.write('{0}\n'.format(meta.get('source')))
 
 def parse_description(data):
-	return u"''{0}''. {1} ({2})".format(get_meta_field(data, "title"), 
-		FULL_NAME_AUTHOR, parse_date(get_meta_field(data, "date")))
+	date = u"''{0}''. {1}".format(get_meta_field(data, "title"), 
+		FULL_NAME_AUTHOR)
+	return date + ' ({0})'.format(parse_date(get_meta_field(data, "date"))) if parse_date(get_meta_field(data, "date")) else date
 
 def parse_dimensions(mats):
 	materials = mats.split(";")
@@ -162,11 +163,13 @@ def parse_dimensions(mats):
 			if " x " in mat), None)
 
 def parse_date(date):
-	found = re.search('\[(.*?)\]', date)
-	if found:
-		return found.group(1)
-	else:
-		return date
+	if date is not None:
+		found = re.search('\[(.*?)\]', date)
+		if found:
+			return found.group(1)
+		else:
+			return date
+	return date
 
 def get_meta_field(data, key):
 	return next(
