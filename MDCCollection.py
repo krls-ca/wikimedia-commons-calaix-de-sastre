@@ -18,6 +18,8 @@ def help():
 	parser.add_argument("--author", action="store", help="Author name in Wikimedia Commons. Ex: 'Antoni Bartumeus i Casanovas'." , required=True)
 	parser.add_argument("--authormdc", action="store", help="Author name in MDC Collection. Ex: 'Bartomeus i Casanovas, Antoni, 1856-1935'." , required=True)
 	parser.add_argument("--dir", action="store", help="Local name folder. Ex 'BartumeusCasanovas'.", required=True)
+	parser.add_argument("--license", action="store", help="License Ex: 'PD-old-80'.", required=False, default='PD-old-80')
+	parser.add_argument("--authorcat", action="store", help="Custom naming in Category:Photographs by ...", required=False)
 	args = parser.parse_args()
 	parser.print_help()
 	return args
@@ -29,10 +31,10 @@ DOMAIN = u"https://mdc.csuc.cat/digital"
 JSON_URL = 'https://mdc.csuc.cat/digital/api/search/collection/afceccf!afcecemc!afcecag!afcecin!afceco!afcecpz/searchterm/{mdc}/field/creato/mode/all/conn/and/order/title/ad/asc/maxRecords/8000'.format(mdc=urllib.parse.quote(args.authormdc))
 JSON_METADATA_URL = 'https://mdc.csuc.cat/digital/api/collections/{collection}/items/{id}/true'
 IMG_FOLDER = u"MDC/{author}/images/".format(author=AUTHOR_DIR)
-LICENSE = u"{{PD-Art|PD-old-80}}"
+LICENSE = u"{{{{PD-Art|{license}}}}}".format(license=args.license)
 INSTITUTION = u"{{Institution:Memòria Digital de Catalunya}}"
 FONDS = u'Fons'
-COMMONS_CAT = u"[[Category:Photographs by {author}]]\n[[Category:Images from Memòria Digital de Catalunya]]".format(author=args.author)
+COMMONS_CAT = u"[[Category:Photographs by {author}]]\n[[Category:Images from Memòria Digital de Catalunya]]".format(author=args.authorcat if args.authorcat else args.author)
 
 class CompoundObjectException(Exception):
     def __init__(self, message):
