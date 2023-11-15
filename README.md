@@ -46,3 +46,20 @@ Arguments:
   --dir DIR             Local name folder
 
 
+## Sala de Premsa del Govern de Catalunya (2023)
+
+És un codi que donat una rang de dates recupera les fotografies publicades en aquell període per la Sala de Premsa del Govern de Catalunya i les penja a Wikimedia Commons. S'eviten les imatges duplicades a partir de l'identificador de la fotografia al sistema.
+
+```sh
+$ python3 premsaGencat.py --start 1-10-2023 --end 1-11-2023
+```
+
+Usage: premsaGencat.py [-h] [--debug] --start START_DATE --end END_DATE
+
+Exemple d'ús Premsa Gencat.
+
+options:
+  -h, --help          show this help message and exit
+  --debug             No es pengen les imatges a Commons.
+  --start START_DATE  Data des del qual vols importar. Per exemple, 2023-10-12
+  --end END_DATE      Data fins qual vols importar (dia no inclòs). Per exemple, 2023-10-13
