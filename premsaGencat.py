@@ -5,10 +5,13 @@ from paprika import *
 from string import Template
 from datetime import datetime
 from scripts import upload
+from urllib.parse import urlparse
 import argparse
+import os
 import requests
 import pywikibot
 import json
+import re
 
 class AlreadyUploadedException(Exception):
     def __init__(self, message="Previously uploaded file."):
@@ -24,13 +27,14 @@ class GencatImage:
     publicationDate: str #Date
     agency: list
     width: str
+    catImage: str
     height: str
 
     def get_source(self):
-        return "https://govern.cat/salapremsa/audiovisual/imatge/2/{0}".format(self.id)
+        return "https://govern.cat/salapremsa/audiovisual/imatge/{0}/{1}".format(self.catImage, self.id)
 
 GENCAT_API_URL = "https://cercadorgovern.extranet.gencat.cat/documents-ca//_search"
-GENCAT_API_QUERY = Template('{"sort":{"dataPublicacioPortal":{"order":"desc"}},"query":{"bool":{"must":[{"range":{"dataPublicacioPortal":{"format":"date_optional_time","gte":"${start}","lt":"${end}"}}}],"filter":[{"match":{"type.main":"5"}}],"must_not":[]}}}')
+GENCAT_API_QUERY = Template('{"sort":{"dataPublicacioPortal":{"order":"desc"}},"query":{"bool":{"must":[{"range":{"dataPublicacioPortal":{"format":"date_optional_time","gte":"${start}","lt":"${end}"}}}],"filter":[{"match":{"type.main":"5"}}],"must_not":[]}}${after}}')
 UPLOAD_PAGE = Template('''
 == {{int:filedesc}} ==
 
@@ -44,19 +48,28 @@ UPLOAD_PAGE = Template('''
  |other_fields 1 = {{InFi|Government agency|${agency}}}
 }}
 
-[[Category:Images from Generalitat de Catalunya Press Room in ${month} ${year}]]
+[[Category:Images from Generalitat de Catalunya Press Room in ${datecat}]]
     ''')
+MAX_CHARACTERS = 230
 
 def help():
     parser = argparse.ArgumentParser(description="Exemple d'ús PremsaGencat.")
     parser.add_argument("--debug", action="store_true", help="No es pengen les imatges a Commons.")
     parser.add_argument("--start", dest="start_date", action="store", help="Data des del qual vols importar. Per exemple, 2023-10-12", required=True)
     parser.add_argument("--end", dest="end_date", action="store", help="Data fins qual vols importar (dia no inclòs). Per exemple, 2023-10-13", required=True)
+    parser.add_argument("--blacklist", action="store_true", help="Genera una blacklist local que exclou els identificadors d'imatges afegits. També afegeix a la blacklist aquelles imatges que ja han estat carregades a Commons prèviament.")
     args = parser.parse_args()
     parser.print_help()
     return args
 
 args = help()
+
+if args.blacklist:    
+    try:
+        file = open('premsaGencat_ids.txt', 'a+', encoding='utf8')
+    except (OSError, IOError) as e:
+        print(u'Problemes per obrir l\'arxiu')
+        exit(0)
 
 def strdatetime_to_date(strdatetime):
     return datetime.strptime(strdatetime, "%Y-%m-%dT%H:%M:%S.%f")
@@ -72,7 +85,6 @@ def parse_agencies(departments):
 def clean_null(content):
     return ' '.join(content.rsplit(' null', 1)).strip()
 
-
 def parse_content_information(element):
     #element['_source']['departaments']
     return GencatImage(
@@ -80,21 +92,47 @@ def parse_content_information(element):
         title=element['_source']['titular'],
         subtitle=clean_null(element['_source']['subtitol']),
         downloadUrl=element['_source']['multimedia']['downloadUrl'],
-        extension=element['_source']['multimedia']['extensio'],
+        extension=get_file_extension(element['_source']['multimedia']['downloadUrl']),
         publicationDate=element['_source']['dataPublicacioPortal'],
+        catImage=element['_source']['type']['subtype'], #confirma que ok
         agency=parse_agencies(element['_source']['departaments'])
         )
+
+def remove_not_allowed_characters(filename):
+    characters_to_remove = "#<>[]|:{}"
+    return filename.replace("\n", "").translate(str.maketrans('', '', characters_to_remove))
+
+def is_blacklisted(filename):
+    pattern = r'[fF][oO][tT][oO].?\d{1,2}|[fF][oO][tT][oO]$|\.$'
+    return re.fullmatch(pattern, filename)
+
+def trunc_filename(filename):
+    return filename[:MAX_CHARACTERS] + "..." if len(filename) > MAX_CHARACTERS else filename
+
+def get_file_extension(url):
+    return os.path.splitext(urlparse(url).path)[1]
 
 def filename_already_exists(site, filename, idt):
     page = pywikibot.Page(site, u"File:{0}".format(filename))
     if page.exists() and idt in page.get():
+        if args.blacklist:
+            print(idt)
+            file.write('{0}\n'.format(idt))
         raise AlreadyUploadedException("ContentId {0} already uploaded with filename: {1}".format(idt, filename))
     else:
         return True if page.exists() else False
 
+def parse_filename(filename):
+    file = remove_not_allowed_characters(filename)
+    if is_blacklisted(file):
+        file = "Generalitat de Catalunya Press Room - " + file
+    return trunc_filename(file)
+
 def get_filename(site, content):
+    filename_title = parse_filename(content.title)
+    print(filename_title)
     date = strdatetime_to_date(content.publicationDate).strftime("%d-%m-%Y")
-    filename = '{name} ({date}).{extension}'.format(name=content.title, #
+    filename = '{name} ({date}){extension}'.format(name=filename_title, #
         extension=content.extension, #
         date=date)
     print(filename)
@@ -102,12 +140,10 @@ def get_filename(site, content):
         return filename
 
     for i in range(10):
-        print(i)
-        filename = '{name} ({date}) - {i}.{extension}'.format(name=content.title, #
+        filename = '{name} ({date}) - {i}{extension}'.format(name=filename_title, #
         extension=content.extension, #
         date=date, #
         i=i)
-        print(filename)
         if not filename_already_exists(site, filename, content.id):
             return filename
 
@@ -123,41 +159,66 @@ def upload_image(site, content):
         subtitle = content.subtitle, #
         agency = "/".join(content.agency), #
         source=content.get_source(), #
-        month=date.strftime("%B"), #
-        year = date.year)
-    print(upload_content)
+        datecat='{0} {1}'.format(date.strftime("%B"), date.year) if date.year > 2021 else date.year)
     try:
         filename = '-filename:{0}'.format(get_filename(site, content))
+        print(filename)
         if not args.debug:
             upload.main(u"-always", filename, u"-abortonwarn:", u"-noverify", content.downloadUrl, upload_content)
     except AlreadyUploadedException as e:
         print(e)
+    except Exception as e:
+        print(e)
+        print("HOLAAAAAAAAAAAA")
 
-def process(site):
+def query_page(last_element):
+
     query = GENCAT_API_QUERY.substitute(
         start=strdate_to_datetime_utc(args.start_date),
-        end=strdate_to_datetime_utc(args.end_date))
-    json_query = json.loads(query)
+        end=strdate_to_datetime_utc(args.end_date),
+        after='' if last_element is None else ',"search_after":[{0}]'.format(last_element))
     print(GENCAT_API_URL)
-    print(json_query)
-    r = requests.post(GENCAT_API_URL, json=json_query)
+    json_query = json.loads(query)
+    response = requests.post(GENCAT_API_URL, json=json_query)
+    if response.status_code != 200:
+        raise Exception("Status Code {0}".format(r.status_code))
+    return response.json()
 
-    if r.status_code == 200:
-        response_data = r.json()
-        total = len(response_data['hits']['hits'])
-        print("Processed images: 0 de {0}".format(total))
-        processed = 0
-        for element in response_data['hits']['hits']:
+def is_blacklisted_image(idt, file_ids):
+    return args.blacklist and idt in file_ids
+
+def process_batch(site):
+    if args.blacklist:
+        file_ids = blacklist_images()
+    response_data = query_page(None)
+    image_data = response_data['hits']['hits']
+    partial_length = len(response_data['hits']['hits'])
+    total = response_data['hits']['total']['value']
+    iterator = 0
+    print("Processing {0} of images ...".format(total))
+    while partial_length <= total:
+        for element in image_data:
             content = parse_content_information(element)
-            upload_image(site, content)
-            processed = processed + 1
-            print("Processed images: {0} de {1}".format(processed, total))
+            if not is_blacklisted_image(content.id, file_ids): #FILE IDS POT NO EXISTIR 
+                upload_image(site, content)
+            iterator = iterator + 1
+            print("Processed images: {0} of {1}".format(iterator, total))
+        last_element_id = image_data[-1]['sort'][0]
+        response_data = query_page(last_element_id)
+        image_data = response_data['hits']['hits']
+        partial_length = partial_length + len(response_data['hits']['hits'])
+        print("Progress: {0} of {1} images".format(partial_length, total))
+
+def blacklist_images():
+    file.seek(0)
+    file_ids = file.read().split('\n')
+    file.seek(0, 2)
+    return file_ids
 
 def main():
     site = pywikibot.Site("commons", "commons")
     site.login()
-
-    process(site)
+    process_batch(site)
 
 if __name__ == '__main__':
 	main()
