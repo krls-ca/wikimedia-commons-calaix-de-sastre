@@ -12,6 +12,7 @@ import requests
 import pywikibot
 import json
 import re
+import time
 
 class AlreadyUploadedException(Exception):
     def __init__(self, message="Previously uploaded file."):
@@ -50,7 +51,7 @@ UPLOAD_PAGE = Template('''
 
 [[Category:Images from Generalitat de Catalunya Press Room in ${datecat}]]
     ''')
-MAX_CHARACTERS = 230
+MAX_BYTES = 218
 
 def help():
     parser = argparse.ArgumentParser(description="Exemple d'ús PremsaGencat.")
@@ -99,15 +100,15 @@ def parse_content_information(element):
         )
 
 def remove_not_allowed_characters(filename):
-    characters_to_remove = "#<>[]|:{}"
+    characters_to_remove = "#<>[]|:/{}"
     return filename.replace("\n", "").translate(str.maketrans('', '', characters_to_remove))
 
 def is_blacklisted(filename):
-    pattern = r'[fF][oO][tT][oO].?\d{1,2}|[fF][oO][tT][oO]$|\.$'
+    pattern = r'[fF][oO][tT][oO].?\d{1,2}|[fF][oO][tT][oO]$|\.$| $'
     return re.fullmatch(pattern, filename)
 
 def trunc_filename(filename):
-    return filename[:MAX_CHARACTERS] + "..." if len(filename) > MAX_CHARACTERS else filename
+    return (filename.encode('utf-8')[:MAX_BYTES].decode('utf-8') + "...") if len(filename.encode('utf-8')) > MAX_BYTES else filename
 
 def get_file_extension(url):
     return os.path.splitext(urlparse(url).path)[1]
@@ -172,7 +173,7 @@ def upload_image(site, content):
         print("HOLAAAAAAAAAAAA")
 
 def query_page(last_element):
-
+    time.sleep(5)
     query = GENCAT_API_QUERY.substitute(
         start=strdate_to_datetime_utc(args.start_date),
         end=strdate_to_datetime_utc(args.end_date),
