@@ -6,6 +6,7 @@ from string import Template
 from datetime import datetime
 from scripts import upload
 from urllib.parse import urlparse
+from random import randint
 import argparse
 import os
 import requests
@@ -13,6 +14,7 @@ import pywikibot
 import json
 import re
 import time
+import traceback
 
 class AlreadyUploadedException(Exception):
     def __init__(self, message="Previously uploaded file."):
@@ -104,7 +106,7 @@ def remove_not_allowed_characters(filename):
     return filename.replace("\n", "").translate(str.maketrans('', '', characters_to_remove))
 
 def is_blacklisted(filename):
-    pattern = r'[fF][oO][tT][oO].?\d{1,2}|[fF][oO][tT][oO]$|\.$| $'
+    pattern = r'[fF][oO][tT][oO].?\d{1,2}\s*|[fF][oO][tT][oO]$|\.$| $'
     return re.fullmatch(pattern, filename)
 
 def trunc_filename(filename):
@@ -114,7 +116,7 @@ def get_file_extension(url):
     return os.path.splitext(urlparse(url).path)[1]
 
 def filename_already_exists(site, filename, idt):
-    page = pywikibot.Page(site, u"File:{0}".format(filename))
+    page = pywikibot.FilePage(site, u"File:{0}".format(filename))
     if page.exists() and idt in page.get():
         if args.blacklist:
             print(idt)
@@ -151,6 +153,11 @@ def get_filename(site, content):
     print("NO HAURÍEM D'ARRIBAR AQUÍ")
     exits(0)
 
+def upload(site, content, filename, upload_content):
+    print(upload_content)
+    file_page = pywikibot.FilePage(site, u"File:{0}".format(filename))
+    file_page.upload(content.downloadUrl, text=upload_content, comment="Uploading Generalitat de Catalunya Press Room image", ignore_warnings=False, report_success=True)  
+
 def upload_image(site, content):
     date = strdatetime_to_date(content.publicationDate)
     upload_content = UPLOAD_PAGE.substitute(title = content.title, #
@@ -162,18 +169,52 @@ def upload_image(site, content):
         source=content.get_source(), #
         datecat='{0} {1}'.format(date.strftime("%B"), date.year) if date.year > 2021 else date.year)
     try:
-        filename = '-filename:{0}'.format(get_filename(site, content))
+        filename = get_filename(site, content)
+        #filename = '-filename:{0}'.format(get_filename(site, content))
         print(filename)
         if not args.debug:
-            upload.main(u"-always", filename, u"-abortonwarn:", u"-noverify", content.downloadUrl, upload_content)
+            upload(site, content, filename, upload_content)
+            #result = file_page.upload(content.downloadUrl, text=upload_content, comment="Uploading Generalitat de Catalunya Press Room image", ignore_warnings=False, report_success=True)
+            #result = upload.main(u"-always", filename, u"-abortonwarn:", u"-noverify", content.downloadUrl, upload_content)
     except AlreadyUploadedException as e:
         print(e)
+    except pywikibot.exceptions.APIError as e:
+        if "verification-error" in e.code:
+            details = e.other['details']
+            if details[0] == 'filetype-mime-mismatch':
+                new_extension = details[2]
+                match = re.match(r'image\/(.*?)$', new_extension)
+                if match:
+                    content.extension = "." + match.group(1)
+                else:
+                    content.extension = "." + details[2]
+                print("Fixing verification-error: {0}".format(filename))
+                upload_image(site, content)
+        elif "duplicate" in e.code:
+            if args.blacklist:
+                idt = content.id
+                file.write('{0}\n'.format(idt))
+            print("ContentId {0} already uploaded with filename: {1}".format(idt, filename))
+        elif "exists-normalized" in e.code:
+            content.title = "GENCAT - {0} ({1})".format(content.title, content.id)
+            print("Fixing exists-normalized: {0}".format(filename))
+            upload_image(site, content)
+        else:
+            traceback.print_exc()
+            print(e.args)
+            print(e.info)
+            print(e.other)
+            print(e.code)
+            print("S'ha produït un error inesperat.")
+    except pywikibot.exceptions.UploadError as e:
+        traceback.print_exc()
+        print("UploadError: S'ha produït un error inesperat.")
     except Exception as e:
-        print(e)
-        print("HOLAAAAAAAAAAAA")
+        traceback.print_exc()
+        print("Exception: S'ha produït un error inesperat.")
 
 def query_page(last_element):
-    time.sleep(5)
+    time.sleep(randint(3, 10))
     query = GENCAT_API_QUERY.substitute(
         start=strdate_to_datetime_utc(args.start_date),
         end=strdate_to_datetime_utc(args.end_date),
@@ -197,7 +238,7 @@ def process_batch(site):
     total = response_data['hits']['total']['value']
     iterator = 0
     print("Processing {0} of images ...".format(total))
-    while partial_length <= total:
+    while len(image_data) > 0:
         for element in image_data:
             content = parse_content_information(element)
             if not is_blacklisted_image(content.id, file_ids): #FILE IDS POT NO EXISTIR 
@@ -208,6 +249,7 @@ def process_batch(site):
         response_data = query_page(last_element_id)
         image_data = response_data['hits']['hits']
         partial_length = partial_length + len(response_data['hits']['hits'])
+        print(partial_length)
         print("Progress: {0} of {1} images".format(partial_length, total))
 
 def blacklist_images():
