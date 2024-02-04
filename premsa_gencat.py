@@ -38,7 +38,7 @@ class GencatImage:
     def get_source(self):
         return f"https://govern.cat/salapremsa/audiovisual/imatge/{self.catImage}/{self.id}"
 
-GENCAT_API_URL = "https://cercadorgovern.extranet.gencat.cat/documents-ca//_search?size=25&track_total_hits=true&filter_path=hits.hits._source,hits.hits.sort,hits.total"
+GENCAT_API_URL = "https://cercadorgovern.extranet.gencat.cat/documents-ca//_search?size=250&track_total_hits=true&filter_path=hits.hits._source,hits.hits.sort,hits.total"
 GENCAT_API_QUERY = Template('{"sort":{"dataPublicacioPortal":{"order":"desc"}}, \
     "query":{"bool":{"must":[{"range":{"dataPublicacioPortal": \
     {"format":"date_optional_time","gte":"${start}","lt":"${end}"}}}], \
@@ -117,7 +117,7 @@ def remove_not_allowed_characters(filename):
     return filename.replace("\n", "").translate(str.maketrans('', '', characters_to_remove))
 
 def is_blacklisted(filename):
-    pattern = r'[fF][oO][tT][oO].?\d{1,2}\s*|[fF][oO][tT][oO]$|\.$| $'
+    pattern = r'[fF][oO][tT][oO].?\d{1,2}\s*|[fF][oO][tT][oO]$|\.$| $|^\d+$| \.$'
     return re.fullmatch(pattern, filename)
 
 def trunc_filename(filename):
