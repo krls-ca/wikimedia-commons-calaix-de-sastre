@@ -4,7 +4,7 @@ name: premsa-gencat-cron
 on:
   schedule:
     # Executa cada dia a les 00:00 UTC
-    - cron: '0 0 * * *'
+    - cron: '27 0 * * *'
 
 jobs:
   run-script:
