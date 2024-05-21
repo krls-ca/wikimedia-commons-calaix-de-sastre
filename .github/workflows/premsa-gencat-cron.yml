@@ -23,5 +23,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pywikibot paprika
 
+      - name: Calculate dates
+        id: calculate-dates
+        run: |
+          echo "Calculating dates..."
+          TODAY=$(date -d "today" '+%d-%m-%Y')
+          3_DAYS_AGO=$(date -d "3 days ago" '+%d-%m-%Y')
+          echo "start_date=$3_DAYS_AGO" >> $GITHUB_ENV
+          echo "end_date=$TODAY" >> $GITHUB_ENV
+        shell: bash
+        
       - name: Run Python script
-        run: python premsa_gencat.py
+        run: python3 premsa_gencat.py --start ${{ env.start_date }} --end ${{ env.end_date }}
