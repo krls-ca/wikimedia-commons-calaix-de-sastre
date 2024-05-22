@@ -11,6 +11,14 @@ Calaix de sastre dels diferents projectes Wikimedia:
 4. [Calaix de Sastre Viquitexts](https://github.com/krls-ca/viquipedia-calaix-de-sastre)
 5. [Calaix de Sastre Viquidites](https://github.com/krls-ca/viquipedia-calaix-de-sastre)
 
+
+## arxivador-cawiki.py (històric; Coet)
+
+Codi que arxiva les pàgines de discussió de la Viquipèdia en català.
+
+## Semibot - Treure enllaços interwikis (2018)
+Va ser un semibot per automatitzar el procés de manteniment d'eliminar enllaços interwiki dins el codi de l'article: ja fos eliminant l'enllaç directament, enllaçant amb l'article correcte en català o deixant-lo com un enllaç en blanc. Va ser un codi vinculat a la Gran Quinzena Anual de la Qualitat 2018.
+
 ## Scrapping JoanBrull (2015)
 
 Codi redumentari que es descarregava les fotogràfies en domini públic de Joan Brull (https://joanbrull.com/ca/) a partir del codi HTML de la pàgina d'aquell moment. Posteriorment, aquestes eren pujades a Wikimedia Commons amb les metadades bàsiques. https://commons.wikimedia.org/wiki/Category:Joan_Brull_i_Vinyoles
