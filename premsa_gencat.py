@@ -77,10 +77,12 @@ def help():
 
 args = help()
 
+copyrighted_images = open('copyright_violation.txt', 'a+', encoding='utf8')
+
 if args.blacklist:
     try:
         file = open('premsaGencat_ids.txt', 'a+', encoding='utf8')
-        copyrighted_images = open('copyright_violation.txt', 'a+', encoding='utf8')
+        #copyrighted_images = open('copyright_violation.txt', 'a+', encoding='utf8')
     except (OSError, IOError) as e:
         print('Problemes per obrir l\'arxiu')
         sys.exit(0)
@@ -263,6 +265,7 @@ def get_image_data(response_data):
 
 def process_batch(site):
     copyrighted_ids = get_ids_file(copyrighted_images)
+    print(copyrighted_ids)
     if args.blacklist:
         blacklisted_ids = get_ids_file(file)
     response_data = query_page(None)

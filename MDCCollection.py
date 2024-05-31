@@ -95,7 +95,7 @@ def description_text(meta):
 	"\n |credit line        = {7} (depositor) \n |inscriptions       = \n |accession number   = {8} \n |source             = {9} \n |permission         = {10} "\
 	"\n |other_versions     = \n |original description = {11}\n |wikidata           = \n}}}}\n\n"\
 	"".format(u"{{{{Creator:{0}}}}}".format(FULL_NAME_AUTHOR), meta.get("title"), meta.get("description"), \
-		meta.get("geo"), meta.get("publishedDate"), INSTITUTION, meta.get("fonds"), \
+		meta.get("geo"), meta.get("publicationDate"), INSTITUTION, meta.get("fonds"), \
 		meta.get("depositor"), meta.get("inventaryNumber"), meta.get("source"), LICENSE, meta.get("originalDescription"), meta.get("medium"), meta.get("dimensions"))
 	#license = u"== {{{{int:license-header}}}} ==\n{0}\n\n".format(LICENSE)
 	license = u""
@@ -139,9 +139,13 @@ def upload_image(site, meta, img_path):
 					else:
 						print("HA FALLAT {0}".format(alternative_file_name))
 						fail_file.write('{0}\n'.format(meta.get('source')))
+				elif page.isRedirectPage() or meta.get("inventaryNumber") not in page.get() or "Photographs by unknown author in Memòria Digital de Catalunya" not in page.get():
+					print("HA FALLAT TAMBÉ {0}".format(alternative_file_name))
+					fail_file.write('{0}\n'.format(meta.get('source')))
 				else:
 					done_file.write('{0}\n'.format(meta.get('source')))
 			else:
+
 				done_file.write('{0}\n'.format(meta.get('source')))
 		else:
 			print(page.exists())
@@ -203,7 +207,7 @@ def get_metadata(collection, identifier, img_url):
         dimensions = parse_dimensions(get_meta_field(data, "format")),
         publisher = get_meta_field(data, "reposi"),
         geo = get_meta_field(data, "ageo"),
-        publishedDate = parse_date(get_meta_field(data, "date")),
+        publicationDate = parse_date(get_meta_field(data, "date")),
         depositor = get_meta_field(data, "instit"),
         source = img_url,
         repository = u"Memòria Digital de Catalunya",
@@ -219,6 +223,13 @@ def get_metadata(collection, identifier, img_url):
 		meta['medium'] = get_meta_field(data, "descrb")
 		meta['dimensions'] = parse_dimensions(get_meta_field(data, "descrb"))
 		meta['depositor'] = get_meta_field(data, "publis")
+	if u"/afcecpz/" in img_url:
+		meta['inventaryNumber'] = get_meta_field(data, "identi")
+		meta['medium'] = get_meta_field(data, "type")
+		meta['dimensions'] = parse_dimensions(get_meta_field(data, "type"))
+		meta['fonds'] = u'{0} {1}'.format(FONDS, get_meta_field(data, "format"))
+		meta['originalDescription'] = get_meta_field(data, "ttol") #notexists
+		meta['subjec'] = get_meta_field(data, "covera")
 	return meta
 
 def process_image(site, img_url):
@@ -237,7 +248,7 @@ def process_image(site, img_url):
 		print("CompoundObject {0}".format(compound_url))
 		download_image_to_file(compound_url, output_path)
 
-	if(u"/afceccf/" in img_url or u"/afcecag/" in img_url or u"/afcecemc/" in img_url):
+	if(u"/afceccf/" in img_url or u"/afcecag/" in img_url or u"/afcecemc/" in img_url or u"/afcecpz/" in img_url):
 		meta = get_metadata(collection, identifier, img_url)
 		print(meta)
 		if not args.debug:
@@ -280,7 +291,7 @@ def main():
 	collection_urls, done_urls, fail_urls = get_progress()
 	processed = len(done_urls)-1
 	for img_url in collection_urls:
-		if img_url not in done_urls and img_url not in fail_urls:
+		if img_url not in done_urls and img_url not in fail_urls and img_url != '':
 			print(processed)
 			process_image(site, img_url)
 			processed = processed + 1
@@ -289,3 +300,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+
